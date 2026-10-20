@@ -643,27 +643,29 @@ var RW=CFG.reels.reelW, GAP=CFG.reels.gap, TILE=CFG.reels.tile;
 var SCENE_W=RC*RW+(RC-1)*GAP, SCENE_H=ROWS*CH;
 GH.reelCont=[]; GH.anticFx=[]; GH.crescFx=[]; GH.pulseTweens=[];
 
+function dataURItoBlobURL(u){
+  var b64=u.split(',')[1], bin=atob(b64), arr=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([arr],{type:'image/png'}));
+}
+
 function BootScene(){}
 BootScene.prototype={
-  /* decode via native Image (data URIs + files), then register with Phaser —
-     the Loader's data-URI support is unreliable on mobile browsers */
-  create:function(){
+  preload:function(){
     var t=this;
-    var jobs=CFG.symbols.map(function(s){
-      return new Promise(function(res){
-        var im=new Image();
-        im.onload=function(){ t.textures.addImage(s.tex,im); res(); };
-        im.onerror=function(){ console.error('symbol load failed',s.tex); res(); };
-        im.src=(GH.IMG64&&GH.IMG64[s.tex])||('assets/symbols/'+s.tex+'.png');
-      });
+    CFG.symbols.forEach(function(s){
+      var src=(GH.IMG64&&GH.IMG64[s.tex])||('assets/symbols/'+s.tex+'.png');
+      if(src.indexOf('data:')===0) src=dataURItoBlobURL(src);
+      t.load.image(s.tex,src);
     });
-    Promise.all(jobs).then(function(){
-      var g=t.make.graphics({x:0,y:0,add:false});
-      g.lineStyle(3,0xff4d5e,1); g.strokeRoundedRect(3,3,RW-6,SCENE_H-6,12); g.generateTexture('anticFrame',RW,SCENE_H); g.clear();
-      g.lineStyle(5,0xffd166,1); g.strokeRoundedRect(4,4,RW-8,SCENE_H-8,12); g.generateTexture('crescFrame',RW,SCENE_H); g.clear();
-      g.lineStyle(4,0xffd166,1); g.strokeRoundedRect(3,3,TILE-6,TILE-6,10); g.generateTexture('winFrame',TILE,TILE);
-      t.scene.start('Main');
-    });
+  },
+  create:function(){
+    var g=this.make.graphics({x:0,y:0,add:false});
+    g.lineStyle(3,0xff4d5e,1); g.strokeRoundedRect(3,3,RW-6,SCENE_H-6,12); g.generateTexture('anticFrame',RW,SCENE_H); g.clear();
+    g.lineStyle(5,0xffd166,1); g.strokeRoundedRect(4,4,RW-8,SCENE_H-8,12); g.generateTexture('crescFrame',RW,SCENE_H); g.clear();
+    g.lineStyle(4,0xffd166,1); g.strokeRoundedRect(3,3,TILE-6,TILE-6,10); g.generateTexture('winFrame',TILE,TILE);
+    this.scene.add('Main',MainScene,false);
+    this.scene.start('Main');
   }
 };
 
@@ -1067,7 +1069,7 @@ setInterval(function(){
 var fitEl=document.getElementById('dhx'), fitW=0, fitH=0;
 function fitScreen(){
   if(!fitW){ fitW=fitEl.offsetWidth; fitH=fitEl.offsetHeight; }
-  var s=Math.min(1,(window.innerWidth-10)/fitW,(window.innerHeight-10)/fitH);
+  var s=Math.min(1,(window.innerWidth-4)/fitW);
   fitEl.style.zoom=s;
 }
 window.addEventListener('resize',fitScreen);
@@ -1082,7 +1084,7 @@ new Phaser.Game({
   width:SCENE_W, height:SCENE_H,
   transparent:true,
   banner:false,
-  scene:[BootScene,MainScene]
+  scene:[BootScene]
 });
 })();
 </script>
