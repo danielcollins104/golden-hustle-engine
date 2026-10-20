@@ -163,7 +163,7 @@ body{margin:0;background:#060503;min-height:100vh;display:flex;align-items:cente
   <button class="gift" id="giftBtn" style="display:none"></button>
   <div class="title"><h1 id="gameTitle"></h1><span class="sub" id="gameSub"></span></div>
   <div class="bulbs" id="bulbs"></div>
-  <div class="reelwrap">
+  <div class="reelwrap" id="reelwrap">
     
     <svg class="winlines" id="winlines"></svg>
     <div class="soclose" id="soclose"><span></span></div>
@@ -226,7 +226,7 @@ window.GH=window.GH||{}; GH.IMG64={
 
 /* Golden Hustle — ENGINE v3 · Phaser 3
    Same CFG template as v2 — the engine underneath changed, the knobs didn't. */
-window.GH = {};
+window.GH = window.GH || {};
 
 GH.CFG = {
   meta: {
@@ -562,12 +562,12 @@ for(var b=0;b<16;b++){var bl=document.createElement('div');bl.className='bulb';b
 GH.LADDER.forEach(function(m,i){var c=document.createElement('div');c.className='chip';c.id='chip'+i;c.textContent='×'+m;el.ladder.appendChild(c)});
 CFG.symbols.filter(function(s){return s.pay}).forEach(function(s){
   var r=document.createElement('div'); r.className='prow';
-  r.innerHTML='<span class="pe"><img src="assets/symbols/'+s.tex+'.png" style="width:26px;height:26px;border-radius:6px"></span><span class="pn">'+s.name+(s.wild?' · wild':'')+'</span><span class="pp">×'+s.pay[3]+' / ×'+s.pay[4]+' / ×'+s.pay[5]+'</span>';
+  r.innerHTML='<span class="pe"><img src="'+((GH.IMG64&&GH.IMG64[s.tex])||('assets/symbols/'+s.tex+'.png'))+'" style="width:26px;height:26px;border-radius:6px"></span><span class="pn">'+s.name+(s.wild?' · wild':'')+'</span><span class="pp">×'+s.pay[3]+' / ×'+s.pay[4]+' / ×'+s.pay[5]+'</span>';
   el.paytable.appendChild(r);
 });
 [[CFG.freeSpins.scatter,'3+ = free spins'],[CFG.bonus.scatter,CFG.bonus.minCount+'+ = bonus game']].forEach(function(x){
   var r=document.createElement('div'); r.className='prow';
-  r.innerHTML='<span class="pe"><img src="assets/symbols/'+SYM[x[0]].tex+'.png" style="width:26px;height:26px;border-radius:6px"></span><span class="pn">'+SYM[x[0]].name+'</span><span class="pp">'+x[1]+'</span>';
+  r.innerHTML='<span class="pe"><img src="'+((GH.IMG64&&GH.IMG64[SYM[x[0]].tex])||('assets/symbols/'+SYM[x[0]].tex+'.png'))+'" style="width:26px;height:26px;border-radius:6px"></span><span class="pn">'+SYM[x[0]].name+'</span><span class="pp">'+x[1]+'</span>';
   el.paytable.appendChild(r);
 });
 
@@ -645,16 +645,25 @@ GH.reelCont=[]; GH.anticFx=[]; GH.crescFx=[]; GH.pulseTweens=[];
 
 function BootScene(){}
 BootScene.prototype={
-  preload:function(){
-    var t=this;
-    CFG.symbols.forEach(function(s){ t.load.image(s.tex,(GH.IMG64&&GH.IMG64[s.tex])||('assets/symbols/'+s.tex+'.png')); });
-  },
+  /* decode via native Image (data URIs + files), then register with Phaser —
+     the Loader's data-URI support is unreliable on mobile browsers */
   create:function(){
-    var g=this.make.graphics({x:0,y:0,add:false});
-    g.lineStyle(3,0xff4d5e,1); g.strokeRoundedRect(3,3,RW-6,SCENE_H-6,12); g.generateTexture('anticFrame',RW,SCENE_H); g.clear();
-    g.lineStyle(5,0xffd166,1); g.strokeRoundedRect(4,4,RW-8,SCENE_H-8,12); g.generateTexture('crescFrame',RW,SCENE_H); g.clear();
-    g.lineStyle(4,0xffd166,1); g.strokeRoundedRect(3,3,TILE-6,TILE-6,10); g.generateTexture('winFrame',TILE,TILE);
-    this.scene.start('Main');
+    var t=this;
+    var jobs=CFG.symbols.map(function(s){
+      return new Promise(function(res){
+        var im=new Image();
+        im.onload=function(){ t.textures.addImage(s.tex,im); res(); };
+        im.onerror=function(){ console.error('symbol load failed',s.tex); res(); };
+        im.src=(GH.IMG64&&GH.IMG64[s.tex])||('assets/symbols/'+s.tex+'.png');
+      });
+    });
+    Promise.all(jobs).then(function(){
+      var g=t.make.graphics({x:0,y:0,add:false});
+      g.lineStyle(3,0xff4d5e,1); g.strokeRoundedRect(3,3,RW-6,SCENE_H-6,12); g.generateTexture('anticFrame',RW,SCENE_H); g.clear();
+      g.lineStyle(5,0xffd166,1); g.strokeRoundedRect(4,4,RW-8,SCENE_H-8,12); g.generateTexture('crescFrame',RW,SCENE_H); g.clear();
+      g.lineStyle(4,0xffd166,1); g.strokeRoundedRect(3,3,TILE-6,TILE-6,10); g.generateTexture('winFrame',TILE,TILE);
+      t.scene.start('Main');
+    });
   }
 };
 
