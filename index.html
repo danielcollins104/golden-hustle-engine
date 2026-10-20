@@ -1053,6 +1053,18 @@ setInterval(function(){
   el.timeVal.textContent=Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);
 },1000);
 
+
+/* ── fit-to-screen (phones): zoom scales layout, not just visuals ── */
+var fitEl=document.getElementById('dhx'), fitW=0, fitH=0;
+function fitScreen(){
+  if(!fitW){ fitW=fitEl.offsetWidth; fitH=fitEl.offsetHeight; }
+  var s=Math.min(1,(window.innerWidth-10)/fitW,(window.innerHeight-10)/fitH);
+  fitEl.style.zoom=s;
+}
+window.addEventListener('resize',fitScreen);
+window.addEventListener('orientationchange',function(){setTimeout(fitScreen,250)});
+fitScreen();
+
 /* ── boot Phaser ── */
 updateUI();
 new Phaser.Game({
@@ -1067,4 +1079,3 @@ new Phaser.Game({
 </script>
 </body>
 </html>
-  
