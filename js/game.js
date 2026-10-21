@@ -5,7 +5,7 @@
 var CFG=GH.CFG, SYM=GH.SYM, RC=GH.RC, ROWS=GH.ROWS, CH=GH.CH;
 
 /* ── state ── */
-GH.state={bal:CFG.economy.startBalance,bet:CFG.economy.betStart,streak:0,hype:0,fs:0,fsMult:1,auto:false,lastWin:0,turbo:false,muted:false,spinning:false,sinceGift:0,biggest:0,spins:0,bonusCount:0,pendingBonus:false,scheme:CFG.audio.scheme};
+GH.state={bal:CFG.economy.startBalance,bet:CFG.economy.betStart,streak:0,hype:0,fs:0,fsMult:1,auto:false,lastWin:0,turbo:false,muted:false,spinning:false,sinceGift:0,biggest:0,spins:0,bonusCount:0,pendingBonus:false,scheme:CFG.audio.scheme,gcBalance:CFG.economy.startBalance,scBalance:0};
 GH.jack={}; CFG.jackpots.levels.forEach(function(l){GH.jack[l.key]=l.start});
 GH.strips=[]; for(var i=0;i<RC;i++)GH.strips.push(GH.buildStrip(1337+i*777));
 GH.pos=[]; for(var j=0;j<RC;j++)GH.pos.push(Math.floor(Math.random()*GH.STRIPLEN));
@@ -70,6 +70,19 @@ el.hapticBtn.addEventListener('click',function(){
 });
 
 /* ── helpers ── */
+function fxFlash(id){
+  var el2=document.getElementById(id); if(!el2)return;
+  el2.classList.remove('go'); void el2.offsetWidth; el2.classList.add('go');
+}
+function playAnim(id,onDone){
+  var v=document.getElementById(id); if(!v||!v.src){ if(onDone)onDone(); return false }
+  v.style.display='block'; v.currentTime=0;
+  var p=v.play(); if(p&&p.catch)p.catch(function(){});
+  v.onended=function(){ v.style.display='none'; v.onended=null; if(onDone)onDone(); };
+  setTimeout(function(){ if(v.style.display==='block'){ v.style.display='none'; if(onDone)onDone(); } },9000);
+  return true;
+}
+window.fxFlash=fxFlash; window.playAnim=playAnim;
 function fmt(n){return Math.round(n).toLocaleString('en-US')}
 function fmt2(n){return (Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function toast(msg){el.toast.textContent=msg;el.toast.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(function(){el.toast.classList.remove('show')},2200)}
@@ -113,8 +126,8 @@ function updateUI(){
   if(GH.state.fs>0)el.fsbadge.textContent='FREE SPINS ×'+GH.state.fsMult+' · '+GH.state.fs+' LEFT';
   for(var i=0;i<GH.LADDER.length;i++){var on=i<Math.min(GH.state.streak,10);document.getElementById('chip'+i).className='chip'+(on?' on':'')}
   var g=CFG.engagement;
-  el.giftBtn.style.display=GH.state.sinceGift>=g.giftEverySpins?'block':'none';
-  el.giftBtn.textContent=g.giftLabel.replace('{n}',g.giftAmount);
+  if(GH.net&&GH.net.enabled){el.giftBtn.style.display='none'}
+  else{el.giftBtn.style.display=GH.state.sinceGift>=g.giftEverySpins?'block':'none';el.giftBtn.textContent=g.giftLabel.replace('{n}',g.giftAmount);}
 }
 function award(x){
   GH.state.bal+=x;if(x>GH.state.biggest)GH.state.biggest=x;
@@ -182,6 +195,7 @@ MainScene.prototype={
     GH.smear=[]; GH.lastY=[];
     for(var s2=0;s2<RC;s2++){
       var arr=[];
+      if(!GH.smear||!GH.smear[i])continue;
       for(var r2=0;r2<ROWS;r2++){
         var sp=this.add.image(s2*(RW+GAP)+RW/2,r2*CH+CH/2,'king').setDepth(4).setAlpha(0).setVisible(false);
         arr.push(sp);
@@ -240,6 +254,7 @@ MainScene.prototype={
 /* ── spin flow ── */
 function spin(){
   if(GH.state.spinning||spinLock)return;
+  if(GH.net&&GH.net.spin){GH.net.spin();return}
   if(GH.state.fs===0&&GH.state.bal<GH.state.bet){el.brokeOverlay.classList.add('show');return}
   GH.audio.ac(); GH.startMusic(); GH.buzz('spin');
   GH.state.spinning=true; GH.main.clearWin();
@@ -311,7 +326,12 @@ function celebrate(win,res){
   setTimeout(fxKick,10);
 }
 function bigCelebration(text,win){
-  showBanner(text,win,'gold');
+  var bi=document.getElementById('bannerImg');
+  if(bi){ bi.src='assets/fx/banner-mega-win.png'; bi.style.display='block';
+    el.banner.className='banner show gold'; el.banner.querySelector('.big').textContent=''; el.banner.querySelector('.amt').textContent='+$'+fmt(win);
+    clearTimeout(bigCelebration.t); bigCelebration.t=setTimeout(function(){bi.style.display='none'},2800); }
+  else showBanner(text,win,'gold');
+  fxFlash('fxBurst');
   var n=0,iv=setInterval(function(){centerBurst(25);GH.audio.coin();GH.buzz('coin');if(++n>6)clearInterval(iv)},280);
   setTimeout(function(){rain(120)},600);
 }
@@ -599,6 +619,11 @@ var forceReelBox=function(){ var rw=document.getElementById('reelwrap');
 window.addEventListener('resize',forceReelBox);
 window.addEventListener('orientationchange',function(){setTimeout(forceReelBox,250)});
 forceReelBox();
+
+/* exposed for net.js (sweepstakes mode) */
+GH.api={spin:spin,updateUI:updateUI,award:award,fmt:fmt,fmt2:fmt2,toast:toast,showBanner:showBanner,shake:shake,
+  openDoors:openDoors,startFS:startFS,showWheel:showWheel,celebrate:celebrate,resolveSpin:resolveSpin,
+  bigCelebration:bigCelebration,buzz:GH.buzz,audio:GH.audio};
 
 /* ── boot Phaser ── */
 updateUI();
