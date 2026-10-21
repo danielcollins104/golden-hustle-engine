@@ -563,6 +563,13 @@ window.addEventListener('resize',fitScreen);
 window.addEventListener('orientationchange',function(){setTimeout(fitScreen,250)});
 fitScreen();
 
+/* belt-and-braces: ensure reel box has height even if CSS is stale/cached */
+var forceReelBox=function(){ var rw=document.getElementById('reelwrap');
+  if(rw) rw.style.height=(window.innerWidth>window.innerHeight)?'216px':'224px'; };
+window.addEventListener('resize',forceReelBox);
+window.addEventListener('orientationchange',function(){setTimeout(forceReelBox,250)});
+forceReelBox();
+
 /* ── boot Phaser ── */
 updateUI();
 new Phaser.Game({
